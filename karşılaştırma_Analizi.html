@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>American Buffalo - Tiyatro Akımları Karşılaştırması</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root {
+            --root-color: #2a4b7c;
+            --play-basics: #5e35b1;
+            --characters: #d32f2f;
+            --themes: #388e3c;
+            --movements: #f57c00;
+            --similarity: #0288d1;
+            --difference: #7b1fa2;
+            --connection: #c2185b;
+            --background-dark: #121212;
+            --surface: #1e1e1e;
+            --text-light: #f5f5f5;
+            --accent: #4fc3f7;
+            --focused: #ffeb3b;
+            --node-shadow: 0 2px 10px rgba(79, 195, 247, 0.25);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--background-dark);
+            color: var(--text-light);
+            padding: 10px;
+            min-height: 100vh;
+        }
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 5px;
+        }
+        header {
+            text-align: center;
+            padding: 15px;
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(50, 50, 50, 0.7));
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 1px solid var(--accent);
+            box-shadow: 0 0 20px rgba(79, 195, 247, 0.23);
+            backdrop-filter: blur(8px);
+        }
+        h1 {
+            font-size: 2.1rem;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+            background: linear-gradient(90deg, #4fc3f7, #5e35b1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.19);
+        }
+        .subtitle {
+            font-size: 1rem;
+            color: #e0e0e0;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 5px;
+        }
+        .visualization-container {
+            display: flex;
+            gap: 18px;
+            flex-wrap: wrap;
+            flex: 1;
+            min-height: 800px;
+        }
+        #tree-container {
+            flex: 1;
+            min-width: 70%;
+            background: rgba(30, 30, 30, 0.82);
+            padding: 15px;
+            border-radius: 14px;
+            border: 1.5px solid var(--movements);
+            box-shadow: 0 0 18px 2px rgba(245, 124, 0, 0.19);
+            position: relative;
+            backdrop-filter: blur(6px);
+            overflow: auto;
+        }
+        .legend {
+            background: rgba(30, 30, 30, 0.92);
+            padding: 20px 16px;
+            border-radius: 14px;
+            width: 260px;
+            border: 1px solid #424242;
+            backdrop-filter: blur(7px);
+            height: fit-content;
+            box-shadow: 0 0 8px rgba(30,30,30,0.10);
+        }
+        .legend h3 {
+            margin-top: 0;
+            color: var(--accent);
+            text-align: center;
+            border-bottom: 1px solid #555;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.87rem;
+        }
+        .color-box {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            border-radius: 3px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin: 18px 0 12px 0;
+            flex-wrap: wrap;
+        }
+        button {
+            background: linear-gradient(135deg, var(--movements), var(--connection));
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 7px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s cubic-bezier(.25,.8,.25,1), box-shadow 0.3s cubic-bezier(.25,.8,.25,1), transform 0.2s cubic-bezier(.25,.8,.25,1);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.28);
+            min-width: 170px;
+            letter-spacing: 0.6px;
+            font-size: 1.01rem;
+            outline: none;
+        }
+        button:focus-visible {
+            outline: 2px solid var(--focused);
+            outline-offset: 2px;
+        }
+        button:hover, button:focus {
+            /* Only subtle highlight, not excessive brightness */
+            background: linear-gradient(135deg, #f57c00 85%, #c2185b 100%);
+            transform: translateY(-1px) scale(1.03);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.30);
+            filter: brightness(1.04);
+        }
+        .node {
+            transition: all 0.55s cubic-bezier(.26,.84,.46,1);
+        }
+        .clickable-node {
+            cursor: pointer;
+        }
+        .nonclickable-node {
+            cursor: default;
+        }
+        .node circle {
+            stroke-width: 2.5px;
+            stroke: white;
+            transition: all 0.45s cubic-bezier(.24,.84,.32,1);
+            filter: drop-shadow(var(--node-shadow));
+        }
+        .node text {
+            font: 11.5px 'Segoe UI', sans-serif;
+            fill: var(--text-light);
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.65);
+            font-weight: 500;
+            letter-spacing: 0.22px;
+            transition: all 0.5s cubic-bezier(.28,.84,.48,1);
+            paint-order: stroke fill;
+            stroke: rgba(20,20,20,0.18);
+            stroke-width: 0.7px;
+        }
+        .link {
+            fill: none;
+            stroke: #616161;
+            stroke-width: 1.7px;
+            stroke-opacity: 0.77;
+            filter: blur(0.5px);
+            transition: all 0.48s cubic-bezier(.28,.84,.48,1);
+        }
+        .tooltip {
+            position: absolute;
+            padding: 14px 16px;
+            background: rgba(30, 30, 30, 0.99);
+            border: 2.2px solid var(--movements);
+            border-radius: 8px;
+            pointer-events: none;
+            max-width: 340px;
+            color: var(--text-light);
+            font-size: 14px;
+            box-shadow: 0 0 22px rgba(245, 124, 0, 0.16);
+            z-index: 100;
+            backdrop-filter: blur(7px);
+            opacity: 0;
+            transition: opacity 0.27s cubic-bezier(.36,.84,.56,1);
+        }
+        .tooltip h3 {
+            margin: 0 0 8px 0;
+            color: var(--movements);
+            font-size: 15px;
+            border-bottom: 1px solid #555;
+            padding-bottom: 6px;
+        }
+        .tooltip p {
+            margin: 7px 0;
+            line-height: 1.43;
+        }
+        footer {
+            text-align: center;
+            margin-top: 15px;
+            padding: 17px;
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.72), rgba(40, 40, 40, 0.62));
+            border-radius: 10px;
+            font-size: 0.98rem;
+            color: #d0d0d0;
+            border: 1px solid #555;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.19);
+        }
+        .tree-title {
+            text-align: center;
+            margin-bottom: 12px;
+            color: var(--accent);
+            font-weight: 600;
+            letter-spacing: 0.8px;
+            font-size: 1.13rem;
+            text-shadow: 0 0 7px rgba(79, 195, 247, 0.32);
+        }
+        @media (max-width: 1200px) {
+            .visualization-container { flex-direction: column; }
+            .legend { width: 100%; max-width: 100%; margin: 0 auto; }
+            #tree-container { min-height: 670px; }
+        }
+        @media (max-width: 768px) {
+            .controls { flex-direction: column; align-items: center; }
+            button { width: 100%; max-width: 320px; }
+            h1 { font-size: 1.33rem; }
+            .subtitle { font-size: 0.91rem; }
+            #tree-container { height: 420px; }
+            .legend { padding: 13px 7px; font-size: 0.92em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AMERICAN BUFFALO - Tiyatro Akımları Karşılaştırması</h1>
+            <p class="subtitle">David Mamet'in başyapıtı American Buffalo oyununun tarihsel tiyatro akımlarıyla kapsamlı karşılaştırması</p>
+        </header>
+        <div class="controls" role="toolbar" aria-label="Ağaç kontrol butonları">
+            <button id="expand-all" title="Tüm ağaç dallarını açar">Tüm Dalları Genişlet</button>
+            <button id="collapse-all" title="Yalnızca ana başlıkları gösterir">Tüm Dalları Daralt</button>
+            <button id="highlight-movements" title="Tiyatro akımlarını vurgular">Akımları Vurgula</button>
+            <button id="reset-highlight" title="Vurguyu kaldırır">Vurguyu Sıfırla</button>
+            <button id="reset-view" title="Görünümü ve seçimi sıfırlar">Görünümü Sıfırla</button>
+        </div>
+        <div class="visualization-container">
+            <div id="tree-container" tabindex="0" aria-label="Ağaç diyagramı">
+                <div class="tree-title">American Buffalo Tiyatro Akımları Karşılaştırması</div>
+                <div class="tree-loading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 1.2rem;">
+                    <svg width="32" height="32" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" stroke="#f57c00" stroke-width="9" fill="none"
+                            stroke-linecap="round" stroke-dasharray="188.4" stroke-dashoffset="60">
+                            <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50"
+                                dur="1s" repeatCount="indefinite" />
+                        </circle>
+                    </svg>
+                    <span style="margin-left: 10px;">Ağaç diyagramı yükleniyor...</span>
+                </div>
+            </div>
+            <div class="legend">
+                <h3>Renk Kodları</h3>
+                <div class="legend-item"><div class="color-box" style="background: var(--root-color);"></div><span>Oyun ve Ana Başlıklar</span></div>
+                <div class="legend-item"><div class="color-box" style="background: var(--play-basics);"></div><span>Oyun Temelleri</span></div>
+                <div class="legend-item"><div class="color-box" style="background: var(--characters);"></div><span>Karakterler</span></div>
+                <div class="legend-item"><div class="color-box" style="background: var(--themes);"></div><span>Temalar</span></div>
+                <div class="legend-item"><div class="color-box" style="background: var(--movements);"></div><span>Tiyatro Akımları</span></div>
+                <div class="legend-item"><div class="color-box" style="background: var(--similarity);"></div><span>Benzerlikler</span></div>
+                <div class="legend-item"><div class="color-box" style="background: var(--difference);"></div><span>Farklar</span></div>
+                <div class="legend-item"><div class="color-box" style="background: var(--connection);"></div><span>American Buffalo Bağlantısı</span></div>
+                <div class="legend-item"><div class="color-box" style="background: var(--focused);"></div><span>Odaklanmış Düğüm</span></div>
+                <h3 style="margin-top: 15px; margin-bottom: 8px;">Kullanım Kılavuzu</h3>
+                <p style="font-size: 0.89rem; line-height: 1.42;">• <strong>Düğümlere tıklayarak</strong> alt dalları genişletin/daraltın</p>
+                <p style="font-size: 0.89rem; line-height: 1.42;">• <strong>Düğümlerin üzerine gelerek</strong> detaylı bilgi görün</p>
+                <p style="font-size: 0.89rem; line-height: 1.42;">• <strong>Butonlarla</strong> görselleştirmeyi kontrol edin</p>
+                <p style="font-size: 0.89rem; line-height: 1.42;">• <strong>Tıkladığınız düğüm büyür</strong>, diğerleri küçülür</p>
+                <p style="font-size: 0.89rem; line-height: 1.42;">• <strong>Görünümü Sıfırla</strong> butonuyla başlangıç durumuna dönün</p>
+                <p style="font-size: 0.81rem; color: #bbb; margin-top:6px;">Klavye: <strong>Tab</strong> ile diyagram, <strong>Enter</strong> ile odaklanmış düğümü kök yap</p>
+            </div>
+        </div>
+        <div id="tooltip" class="tooltip" style="opacity: 0;" role="tooltip" aria-live="polite"></div>
+    </div>
+    <footer>
+        David Mamet - American Buffalo (1975) | Tiyatro Akımları Karşılaştırmalı Analizi | Emre Candemir
+    </footer>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+        // --- DATA ---
+        const data = {
+            "name": "American Buffalo",
+            "description": "David Mamet'in 1975 tarihli başyapıtı. 1970'ler Chicago'sunda geçen oyun, kapitalizm eleştirisi ve Amerikan Rüyası'nın çöküşünü anlatır. Mamet'in keskin diyalogları ve minimalist sahnesiyle döneminin en etkili eserlerindendir.",
+            "color": "var(--root-color)",
+            "children": [
+                {
+                    "name": "Oyun Temelleri",
+                    "color": "var(--play-basics)",
+                    "children": [
+                        {
+                            "name": "Yazar",
+                            "description": "David Mamet (1947-) - Diyalog ustası, modern Amerikan tiyatrosunun önemli ismi. 'Glengarry Glen Ross' ile Pulitzer ödülü kazanmıştır. 'Mamet stili' olarak bilinen kesik, ritmik diyaloglarıyla tanınır.",
+                            "color": "var(--play-basics)"
+                        },
+                        {
+                            "name": "Dönem",
+                            "description": "1970'ler Amerika - Vietnam Savaşı sonrası toplumsal bunalım, kapitalizm krizi, Watergate skandalı, kent yoksulluğu ve sosyal çözülme dönemi. Tüketim kültürünün yükselişi.",
+                            "color": "var(--play-basics)"
+                        },
+                        {
+                            "name": "Olay Örgüsü",
+                            "description": "Üç serseri, nadir bir madeni para (Buffalo nickel) için hırsızlık planı yapar. Plan paranoya, güvensizlik ve iletişimsizlik nedeniyle çöker. Son sahnede dükkanın tahrip edilmesi metaforik bir kapitalizm çöküşünü simgeler.",
+                            "color": "var(--play-basics)"
+                        },
+                        {
+                            "name": "Mekan & Zaman",
+                            "description": "Tek mekan: Chicago'da dağınık, bakımsız bir eskici dükkanı. Kısıtlı mekan kapitalizmin metaforu olarak kullanılır. 24 saatlik zaman dilimi karakterlerin çöküşünü yoğunlaştırır.",
+                            "color": "var(--play-basics)"
+                        },
+                        {
+                            "name": "Dramatik Yapı",
+                            "description": "Üç birlik kuralına sıkı sıkıya bağlılık. Gerilimin kademeli olarak artması (rising action) ve şiddetli düşüş (catastrophe) ile klasik trajedi formu.",
+                            "color": "var(--play-basics)"
+                        }
+                    ]
+                },
+                {
+                    "name": "Karakterler",
+                    "color": "var(--characters)",
+                    "children": [
+                        {
+                            "name": "Don Dubrow",
+                            "description": "Dükkan sahibi. Baba figürü olmaya çalışan ama otoritesi zayıf karakter. Pragmatik ama yanlış kararlar verir. Bobby'ye karşı korumacı içgüdüleri vardır.",
+                            "color": "var(--characters)"
+                        },
+                        {
+                            "name": "Walter 'Teach' Cole",
+                            "description": "Paranoyak, hiper-agresif, kapitalist değerlerin distopik temsilcisi. 'Her şey ticarettir' felsefesiyle yaşar. Oyunun trajik anti-kahramanı ve itici gücü.",
+                            "color": "var(--characters)"
+                        },
+                        {
+                            "name": "Bobby",
+                            "description": "Masumiyetini kaybeden genç çırak. Uyuşturucu bağımlılığıyla mücadele eder. Grup dinamiklerinde kurban rolündedir. Don'un sözde oğul figürü.",
+                            "color": "var(--characters)"
+                        },
+                        {
+                            "name": "Fletcher (Görünmeyen Karakter)",
+                            "description": "Planlanan hırsızlığın asıl fiziksel gücü. Teach'in kıskançlık duyduğu karakter. Varlığı diyaloglar aracılığıyla hissedilir.",
+                            "color": "var(--characters)"
+                        }
+                    ]
+                },
+                {
+                    "name": "Temalar",
+                    "color": "var(--themes)",
+                    "children": [
+                        {
+                            "name": "Kapitalizm Eleştirisi",
+                            "description": "Amerikan Rüyası'nın çöküşü, materyalizmin yıkıcı etkileri. Para ve mülkiyet ilişkilerinin insani değerleri nasıl yok ettiğinin incelenmesi.",
+                            "color": "var(--themes)"
+                        },
+                        {
+                            "name": "Ahlaki Çözülme",
+                            "description": "Dostluk-değer çatışması, ihanet, insani değerlerin kaybı. 'Onur' ve 'dostluk' gibi kavramların kapitalizm karşısında çöküşü.",
+                            "color": "var(--themes)"
+                        },
+                        {
+                            "name": "Dilin Yozlaşması",
+                            "description": "Saldırgan jargon, iletişimsizlik, kelimelerin içerikten yoksunlaşması. Diyaloglardaki kesintiler ve küfürler dilin anlam kaybını simgeler.",
+                            "color": "var(--themes)"
+                        },
+                        {
+                            "name": "Başarısızlık",
+                            "description": "Planın çöküşü, karakterlerin kendi kendilerini sabote etmesi. Amerikan başarı mitinin altüst edilmesi.",
+                            "color": "var(--themes)"
+                        },
+                        {
+                            "name": "Toksik Erkeklik",
+                            "description": "Zarar verici erkeklik normlarının, saldırganlığın ve kırılgan egonun incelenmesi. Maskülen kimliğin kapitalizmle ilişkisi.",
+                            "color": "var(--themes)"
+                        },
+                        {
+                            "name": "Yalnızlık",
+                            "description": "Modern kent insanının yalnızlığı ve bağ kuramama sorunu. Karakterlerin fiziksel yakınlığına rağmen duygusal mesafeleri.",
+                            "color": "var(--themes)"
+                        }
+                    ]
+                },
+                {
+                    "name": "Tiyatro Akımları",
+                    "color": "var(--movements)",
+                    "children": [
+                        {
+                            "name": "Antik Yunan",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Tek mekân (unity of place), trajik son, karakterlerin hırsla (hubris) düşüşü. Teach'in Oedipus'taki gibi kendi kendini kör eden hırsı.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Kaderci yaklaşım yerine bireysel hırs ve kapitalizm eleştirisi. Tanrıların gazabı değil, sistemin kurbanları olmaları.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Teach'in hırsı (hubris) tıpkı Yunan trajedilerindeki gibi kendi düşüşünü hazırlar. Anagnorisis (farkına varma) anının Don'da yaşanması.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Ortaçağ",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Ahlaki ders verme amacı, insan zaaflarının vurgulanması. Everyman oyunlarındaki gibi evrensel günahların temsili.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Dini temalar yerine seküler kapitalizm eleştirisi. Kutsal olanın yerine paranın geçmesi.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Karakterlerin açgözlülük (avarice) ve kıskançlık (envy) ile düşüşü, Ortaçağ ahlak oyunlarındaki ölümcül günahları anımsatır.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Rönesans",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "İnsan merkezli hikaye, bireyin toplum içindeki yeri. Shakespeare'in alt sınıf karakterlerinin derinlemesine incelenmesi.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Rönesans'ta idealizm, Mamet'te ise yozlaşma ve çöküş hakim. Kahramanların olmaması, anti-kahramanların varlığı.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Shakespeare'in 'Henry IV' eserindeki Falstaff karakteri ile Teach arasındaki benzerlikler. İki karakterde de yozlaşmış erkeklik temaları.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Barok",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Gerilim ve dramın yoğun kullanımı, teatrallik. Aşırı duygusal patlamalar ve monologlar.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Barok'un görkemli dekorlarına karşın minimalist mekan. Aşırı süslemeli dil yerine kesik diyaloglar.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Teach'in 'Biz burada iş yapıyoruz!' monologu Barok döneminin retorik gücünü ve duygusal yoğunluğunu anımsatır.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Klasisizm",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Üç birlik kuralına katı uyum (zaman, mekan, eylem). Fransız neoklasik tiyatrosundaki gibi disiplinli yapı.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Klasisizm'de asil karakterler, Mamet'te sıradan insanlar. Yüksek dil yerine sokak jargonu.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Racine ve Corneille'in katı yapısal disiplinine benzer şekilde 24 saatlik zaman dilimi ve tek mekân kullanımı.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Romantik Akım",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Bireysel tutkuların ön planda olması. Karakterlerin duygusal yoğunlukları ve içsel çatışmaları.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Romantizm'de idealizm, Mamet'te yıkım hakim. Doğa teması yerine kentsel çöküntü.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Teach'in tutkulu monologları Victor Hugo'nun Romantik kahramanlarını anımsatır, ancak distopik bir bağlamda.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Realizm (Gerçekçi Akım)",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Sıradan insanlar, günlük dil, sosyal eleştiri. Ibsen ve Chekhov geleneğinde karakter odaklı anlatı.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Realizm'de ahlaki netlik varken Mamet'te belirsizlik hakim. Diyaloglarda iletişimsizlik ve kopukluk.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Alt sınıf karakterlerin gerçekçi portresi, The Iceman Cometh gibi Amerikan realist eserleriyle paralellik gösterir.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Naturalism (Doğalcılık)",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Çevresel determinizm (dükkan=kafes), alt sınıf odak. Zola ve Strindberg'in sosyal darwinist yaklaşımı.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Naturalizm biyolojik determinizm vurgular, Mamet psikolojik ve sosyal faktörlere odaklanır. Genetik yerine sistemin baskısı.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Karakterlerin çevreleri tarafından şekillendirilmesi. Dükkanın bir mikrokosmos olarak toplumsal düzeni yansıtması.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Dışavurumculuk",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "İç gerilimin dışavurumu, deforme karakterler. O'Neill ve Wedekind geleneğinde psikolojik çözümleme.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Dışavurumculuk şiirsel ve soyut, Mamet keskin ve somut. Dışavurumcu distorsiyon yerine gerçekçi deformasyon.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Teach'in öfke patlamaları ve paranoid monologlar dışavurumcu performansı hatırlatır. İçsel çatışmaların fiziksel tezahürü.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Sürrealist Akım",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Gerçeküstü diyaloglar, bilinç akışı tekniği. Artaud'nun 'Tiyatro ve İkizi'nde olduğu gibi dilin parçalanması.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Sürrealizm rüyamsı atmosfer yaratır, Mamet gerçekçi bağlamı korur. Absürt öğeler gerçekçi zemine oturtulur.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Diyaloglardaki kopukluk ve mantık dışı sıçramalar. Buffalo nickel'in gerçeküstü bir obsesyona dönüşmesi.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Absürd Tiyatro",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Anlamsız diyaloglar, umutsuzluk, insanın anlamsız çabası. Beckett ve Pinter geleneğinde iletişimsizlik teması.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Absürd'de zaman/mekan soyutken Mamet'te somut Chicago. Politik ve sosyal eleştiri ön planda.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Buffalo nickel'in anlamsız takıntıya dönüşmesi. Karakterlerin boşuna çabaları Godot'yu Beklerken'deki umutsuzluğu yansıtır.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Minimalizm",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Sade mekân, diyalogda kesintiler, sessizlikler. Carver ve Pinter etkisiyle az sözle çok şey anlatma.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Minimalizm sakin, Mamet gerilim yüklü. Diyalog kesintileri farklı amaçlarla kullanılır.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Diyaloglardaki kesik cümleler ve minimal anlatım. 'Ne?' 'Hı?' gibi kırık diyaloglarla gerilim inşası.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Postmodernizm",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Meta-anlatı eleştirisi (Amerikan Rüyası), dilin yozlaşması. Baudrillard'ın simülasyon kuramına paralel para fetişizmi.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Mamet geleneksel dramatik yapıyı korur, postmodern parçalar. Tarihsel göndermeler sınırlıdır.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Kapitalizmin dil üzerindeki yozlaştırıcı etkisi. Para ve iletişim arasındaki doğrudan ilişki.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Varoluşçuluk",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Anlamsız bir dünyada anlam arayışı, seçim özgürlüğü. Sartre ve Camus'nün absürt dünya algısı.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Varoluşçuluk felsefi derinlik arar, Mamet sosyal eleştiri yapar. Bireysel özgürlük yerine sistem baskısı.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Karakterlerin anlamsız eylemler içinde kaybolması. 'Özgürlük' kavramının kapitalist sistemdeki imkansızlığı.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Epik Tiyatro",
+                            "color": "var(--movements)",
+                            "children": [
+                                {
+                                    "name": "Benzerlik",
+                                    "description": "Sosyal eleştiri ve yabancılaştırma etkisi. Brecht'in kapitalizm eleştirisiyle paralellik.",
+                                    "color": "var(--similarity)"
+                                },
+                                {
+                                    "name": "Fark",
+                                    "description": "Epik tiyatro didaktik ve politik, Mamet karakter odaklı. Yabancılaştırma teknikleri kullanılmaz.",
+                                    "color": "var(--difference)"
+                                },
+                                {
+                                    "name": "American Buffalo Bağlantısı",
+                                    "description": "Kapitalizmin insan ilişkilerini metalaştırması teması. 'Üç Kuruşluk Opera'daki ahlaki çöküşle benzerlik.",
+                                    "color": "var(--connection)"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+        // --- END DATA ---
+
+        // COLLAPSIBLE TREE, LEFT TO RIGHT, ROOT AT LEFT
+        const margin = { top: 35, right: 100, bottom: 30, left: 130 };
+        const treeContainer = document.getElementById('tree-container');
+        let containerWidth = treeContainer.offsetWidth;
+        let containerHeight = Math.max(treeContainer.offsetHeight, 600);
+        let width = containerWidth - margin.left - margin.right;
+        let height = containerHeight - margin.top - margin.bottom;
+
+        // Remove loading message with fade out
+        setTimeout(() => {
+            const loadingEl = treeContainer.querySelector('.tree-loading');
+            if (loadingEl) {
+                loadingEl.style.transition = "opacity 0.5s";
+                loadingEl.style.opacity = 0;
+                setTimeout(() => loadingEl.remove(), 520);
+            }
+        }, 400);
+
+        const svg = d3.select("#tree-container")
+            .append("svg")
+            .attr("width", containerWidth)
+            .attr("height", containerHeight)
+            .style("overflow", "visible")
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const tooltip = d3.select("#tooltip");
+
+        let treeLayout = d3.tree().size([height, width]);
+        let root = d3.hierarchy(data);
+        root.x0 = height / 2;
+        root.y0 = 0;
+        let focusedNode = root, prevFocusedNode = root;
+
+        // Collapse all children except first level
+        if (root.children) root.children.forEach(collapseAll);
+
+        function collapseAll(node) {
+            if (!node) return;
+            if (node.children) {
+                node.children.forEach(collapseAll);
+                node._children = node.children;
+                node.children = null;
+            }
+        }
+        function expand(node) {
+            if(node._children) {
+                node.children = node._children;
+                node._children = null;
+            }
+        }
+        function collapseToFocus(node, focus) {
+            if (!node) return;
+            if (node === focus) expand(node);
+            else if (focus.ancestors().includes(node)) expand(node);
+            else collapseAll(node);
+            if (node.children) node.children.forEach(child => collapseToFocus(child, focus));
+            else if (node._children) node._children.forEach(child => collapseToFocus(child, focus));
+        }
+        function expandAll(d) {
+            if (d._children) { d.children = d._children; d._children = null; }
+            if (d.children) d.children.forEach(expandAll);
+        }
+        function collapseAllExceptRoot(d) {
+            if (d.children) d.children.forEach(collapseAll);
+            focusedNode = root;
+            update(root);
+        }
+
+        // Responsive resizing
+        function resize() {
+            containerWidth = treeContainer.offsetWidth;
+            containerHeight = Math.max(treeContainer.offsetHeight, 500);
+            width = containerWidth - margin.left - margin.right;
+            height = containerHeight - margin.top - margin.bottom;
+            d3.select("#tree-container svg")
+                .attr("width", containerWidth)
+                .attr("height", containerHeight);
+            treeLayout = d3.tree().size([height, width]);
+            update(focusedNode, true);
+        }
+        window.addEventListener('resize', () => setTimeout(resize, 150));
+
+        function update(source, isResize=false) {
+            prevFocusedNode = prevFocusedNode || root;
+            collapseToFocus(root, focusedNode);
+
+            const treeData = treeLayout(root);
+            const nodes = treeData.descendants();
+            const links = treeData.links();
+
+            // Center vertically
+            let left = root, right = root;
+            root.eachBefore(node => {
+                if (node.x < left.x) left = node;
+                if (node.x > right.x) right = node;
+            });
+            const shiftY = height / 2 - ((left.x + right.x) / 2);
+
+            // Fixed depth for left-to-right
+            nodes.forEach(d => d.y = d.depth * 220);
+
+            // NODE JOIN
+            let i = 0;
+            const node = svg.selectAll('g.node')
+                .data(nodes, d => d.id || (d.id = ++i));
+
+            // Remove old nodes for proper re-rendering (fixes animation bug)
+            node.exit().remove();
+
+            // ENTER
+            const nodeEnter = node.enter().append('g')
+                .attr('class', d => {
+                    if (hasChildren(d)) return 'node clickable-node';
+                    return 'node nonclickable-node';
+                })
+                .attr("transform", d => `translate(${source.y0},${source.x0 + shiftY})`)
+                .on('click', function(event, d) {
+                    // Only clickable if has children
+                    if (hasChildren(d)) {
+                        prevFocusedNode = focusedNode;
+                        focusedNode = d;
+                        update(d);
+                        event.stopPropagation();
+                    }
+                })
+                .on("mouseover", (event, d) => {
+                    tooltip.transition().duration(150).style("opacity", .98);
+                    const content = d.data.description ?
+                        `<h3>${d.data.name}</h3><p>${d.data.description}</p>` :
+                        `<h3>${d.data.name}</h3><p>Daha fazla bilgi için alt dalları genişletin</p>`;
+                    tooltip.html(content)
+                        .style("left", (event.pageX + 16) + "px")
+                        .style("top", (event.pageY - 15) + "px");
+                })
+                .on("mousemove", (event) => {
+                    tooltip
+                        .style("left", (event.pageX + 16) + "px")
+                        .style("top", (event.pageY - 15) + "px");
+                })
+                .on("mouseout", () => {
+                    tooltip.transition().duration(350).style("opacity", 0);
+                })
+                .attr("tabindex", d => hasChildren(d) ? "0" : null)
+                .attr("role", "treeitem")
+                .attr("aria-label", d => d.data.name);
+
+            nodeEnter.append('circle')
+                .attr('class', 'node')
+                .attr('r', d => getNodeSize(d, true))
+                .style("fill", d => d.data.color || "#ccc")
+                .style("stroke", d => getStroke(d))
+                .style("stroke-width", d => getStrokeWidth(d))
+                .style("opacity", d => getOpacity(d))
+                .style("filter", d => d === focusedNode ? "drop-shadow(0 0 10px var(--focused))" : "drop-shadow(var(--node-shadow))")
+                .style("transition", "all 0.62s cubic-bezier(.36,.84,.56,1)");
+
+            nodeEnter.append('text')
+                .attr("dy", ".37em")
+                .attr("x", d => d.children || d._children ? 20 : -20)
+                .attr("text-anchor", d => d.children || d._children ? "start" : "end")
+                .text(d => d.data.name)
+                .style("fill", "white")
+                .style("font-size", d => getFontSize(d))
+                .style("font-weight", "500")
+                .style("pointer-events", "none")
+                .style("opacity", d => getOpacity(d));
+
+            // UPDATE
+            const nodeUpdate = nodeEnter.merge(node);
+
+            nodeUpdate
+                .attr('class', d => {
+                    if (hasChildren(d)) return 'node clickable-node';
+                    return 'node nonclickable-node';
+                });
+
+            nodeUpdate.transition()
+                .duration(isResize ? 0 : 820)
+                .ease(d3.easeCubicInOut)
+                .attr("transform", d => `translate(${d.y},${d.x + shiftY})`);
+
+            nodeUpdate.select('circle.node').transition()
+                .duration(isResize ? 0 : 820)
+                .ease(d3.easeCubicInOut)
+                .attr('r', d => getNodeSize(d))
+                .style("fill", d => d.data.color || "#ccc")
+                .style("stroke", d => getStroke(d))
+                .style("stroke-width", d => getStrokeWidth(d))
+                .style('cursor', d => hasChildren(d) ? 'pointer' : 'default')
+                .style("opacity", d => getOpacity(d))
+                .style("filter", d => d === focusedNode ? "drop-shadow(0 0 15px var(--focused))" : "drop-shadow(var(--node-shadow))");
+
+            nodeUpdate.select('text').transition()
+                .duration(isResize ? 0 : 820)
+                .ease(d3.easeCubicInOut)
+                .attr("x", d => d.children || d._children ? 20 : -20)
+                .attr("text-anchor", d => d.children || d._children ? "start" : "end")
+                .style("font-size", d => getFontSize(d))
+                .style("opacity", d => getOpacity(d));
+
+            // Remove exiting nodes (this is necessary for proper animation)
+            node.exit().transition()
+                .duration(350)
+                .attr("transform", d => `translate(${source.y},${source.x + shiftY})`)
+                .style("opacity", 0)
+                .remove();
+
+            // LINK JOIN
+            const link = svg.selectAll('path.link')
+                .data(links, d => d.target.id);
+
+            // Remove old links for proper re-rendering
+            link.exit().remove();
+
+            // ENTER
+            link.enter().insert('path', "g")
+                .attr("class", "link")
+                .attr('d', d => {
+                    const o = {x: source.x0 + shiftY, y: source.y0};
+                    return diagonal(o, o);
+                })
+                .style("stroke", "#7f8c8d")
+                .style("stroke-width", 1.7);
+
+            // UPDATE
+            link.transition()
+                .duration(isResize ? 0 : 700)
+                .ease(d3.easeCubicInOut)
+                .attr('d', d => diagonal(
+                    {x: d.source.x + shiftY, y: d.source.y},
+                    {x: d.target.x + shiftY, y: d.target.y}
+                ));
+
+            // Remove exiting links
+            link.exit().transition()
+                .duration(350)
+                .attr('d', d => {
+                    const o = {x: source.x + shiftY, y: source.y};
+                    return diagonal(o, o);
+                })
+                .style("opacity", 0)
+                .remove();
+
+            nodes.forEach(d => {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+
+            function diagonal(s, d) {
+                return `M${s.y},${s.x}C${(s.y + d.y) / 2},${s.x} ${(s.y + d.y) / 2},${d.x} ${d.y},${d.x}`;
+            }
+        }
+
+        function hasChildren(d) {
+            // Returns true if node has visible or hidden children
+            return (d.children && d.children.length > 0) || (d._children && d._children.length > 0);
+        }
+
+        function getNodeSize(node, isEnter=false) {
+            if (node === focusedNode) return isEnter ? 1 : 23;
+            if (isAncestor(node, focusedNode)) return isEnter ? 1 : 15;
+            if (isDescendant(node, focusedNode)) return isEnter ? 1 : 13;
+            return isEnter ? 1 : 9;
+        }
+        function getFontSize(node) {
+            if (node === focusedNode) return "15px";
+            if (isAncestor(node, focusedNode)) return "12.2px";
+            if (isDescendant(node, focusedNode)) return "10.5px";
+            return "9.2px";
+        }
+        function getOpacity(node) {
+            if (node === focusedNode) return 1.0;
+            if (isAncestor(node, focusedNode)) return 0.93;
+            if (isDescendant(node, focusedNode)) return 0.68;
+            return 0.43;
+        }
+        function getStroke(node) {
+            return node === focusedNode ? "var(--focused)" : "white";
+        }
+        function getStrokeWidth(node) {
+            return node === focusedNode ? 4.7 : 2.5;
+        }
+        function isAncestor(a, b) {
+            let n = b.parent;
+            while (n) {
+                if (n === a) return true;
+                n = n.parent;
+            }
+            return false;
+        }
+        function isDescendant(a, b) {
+            return isAncestor(b, a);
+        }
+
+        // Button Handlers
+        document.getElementById("expand-all").onclick = function() {
+            expandAll(root);
+            focusedNode = root;
+            update(root);
+        };
+        document.getElementById("collapse-all").onclick = function() {
+            collapseAllExceptRoot(root);
+        };
+        document.getElementById("highlight-movements").onclick = function() {
+            d3.selectAll("g.node").select("circle.node")
+                .transition()
+                .duration(420)
+                .ease(d3.easeCubic)
+                .style("stroke", function(d) {
+                    // highlight all nodes where color is var(--movements)
+                    return d.data.color === "var(--movements)" ? "#ffeb3b" : getStroke(d);
+                })
+                .style("stroke-width", function(d) {
+                    return d.data.color === "var(--movements)" ? 5 : getStrokeWidth(d);
+                })
+                .style("filter", function(d) {
+                    return d.data.color === "var(--movements)" ? "drop-shadow(0 0 15px #ffeb3b)" : (d === focusedNode ? "drop-shadow(0 0 15px var(--focused))" : "drop-shadow(var(--node-shadow))");
+                });
+        };
+        document.getElementById("reset-highlight").onclick = function() {
+            d3.selectAll("g.node").select("circle.node")
+                .transition()
+                .duration(400)
+                .ease(d3.easeCubic)
+                .style("stroke", function(d) { return getStroke(d); })
+                .style("stroke-width", function(d) { return getStrokeWidth(d); })
+                .style("filter", function(d) { return d === focusedNode ? "drop-shadow(0 0 15px var(--focused))" : "drop-shadow(var(--node-shadow))"; });
+        };
+        document.getElementById("reset-view").onclick = function() {
+            if (root.children) root.children.forEach(collapseAll);
+            focusedNode = root;
+            update(root);
+        };
+
+        // Initial render
+        setTimeout(() => update(root), 20);
+
+        // Click on background resets focus
+        d3.select("#tree-container svg").on("click", function(event) {
+            if (event && event.target && event.target.tagName === "svg") {
+                focusedNode = root;
+                update(root);
+            }
+        });
+
+        // Keyboard accessibility: Focus, expand/collapse
+        treeContainer.addEventListener("keydown", function(e) {
+            if (e.key === "Enter" || e.key === " ") {
+                // Only allow expand/collapse if focusedNode is clickable
+                if (hasChildren(focusedNode)) {
+                    focusedNode = focusedNode || root;
+                    update(focusedNode);
+                    e.preventDefault();
+                }
+            }
+        });
+
+        // Help: focus the diagram on Tab
+        treeContainer.addEventListener("focus", function() {
+            d3.select("#tree-container").transition().duration(250)
+                .style("box-shadow", "0 0 0 4px var(--accent)");
+        });
+        treeContainer.addEventListener("blur", function() {
+            d3.select("#tree-container").transition().duration(250)
+                .style("box-shadow", null);
+        });
+
+        // Mobile: touch support
+        d3.selectAll("g.node").on("touchstart", function(event, d) {
+            // Only clickable if has children
+            if (hasChildren(d)) {
+                prevFocusedNode = focusedNode;
+                focusedNode = d;
+                update(d);
+                event.preventDefault();
+            }
+        });
+
+        }); // DOMContentLoaded
+    </script>
+</body>
+</html>
